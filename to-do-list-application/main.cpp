@@ -20,17 +20,28 @@ void createNote(std::vector<note> *notes, std::string text, priority p) {
   notes->push_back(n);
 }
 
+
+
+// SAVE / LOAD NOTES -> E' importante conoscere la dimensione del vettore prima di caricare i dati nel vettore notes
 void saveNotes(std::vector<note> *notes) {
-  std::ofstream outstream("saved/notes.bin", std::ios::out | std::ios::binary);
-  outstream.write((const char *)(notes), sizeof(*notes));
+  std::ofstream outstream("saved/notes.bin", std::ios::binary);
+  uint64_t size = (*notes).size(); //lunghezza del vettore
+  outstream.write((const char *)(&size),sizeof(size));
+  outstream.write((const char*)notes->data(),size*sizeof(note));
   outstream.close();
 }
 
-void loadNotes(std::vector<note> *notes) {
-  std::ifstream instream("saved/notes.bin", std::ios::in | std::ios::binary);
-  instream.seekg(0, std::ios::end);
-  int pos = instream.tellg();
-  instream.read(reinterpret_cast<char *>(notes), pos);
+std::vector<note> loadNotes() 
+{
+  std::ifstream instream("saved/notes.bin", std::ios::binary);
+  uint64_t size;
+  instream.read((char*)&size,sizeof(size));
+  std::vector<note> newnotes;
+  
+  instream.read(reinterpret_cast<char *>(newnotes.data()), size*sizeof(note));
+
+  instream.close();
+  return newnotes;
 }
 
 void anykeyAnswer(const char *request) {
@@ -57,8 +68,7 @@ bool userAnswer(const char *request) {
   return false;
 }
 
-void createFile(const char *path, const char *content,
-                std::ios_base::openmode traits) {
+void createFile(const char *path, const char *content,std::ios_base::openmode traits) {
   std::fstream file(path, traits);
   file.write(content, strlen(content));
   file.close();
@@ -74,14 +84,14 @@ int main()
   // VECTOR OF NOTES LOADED FROM FILE
   std::vector<note> notes;
 
-  loadNotes(&notes);
+  notes=loadNotes();
 
   std::cout << "\033[2J\033[1;1H";
   std::cout << "Welcome to the to-do list CLI application!\n";
 
   // CHECK FIRST RUN WITH DUMMY FILE - use C functions for relative paths
 
-  if (std::filesystem::exists(std::filesystem::current_path() / "dummy.txt") == true)
+ if (std::filesystem::exists(std::filesystem::current_path() / "dummy.txt") == true)
     firstRun = false;
 
   if (firstRun == true) {
@@ -147,7 +157,11 @@ int main()
             std::cout << "\n----\n";
             std::cout << "Text:\n";
             std::string content;
-            std::cin >> content;
+
+            //getline e std::cin ignorano i whitespace. Cin legge input fino al token 'whitespace' e lo lascia nello stream.
+            std::cin.ignore();
+            std::getline(std::cin,content);
+
             std::cout << "\nPriority? 0-Low, 1-Medium, 2-High, 3-Urgent? (default is low)\n"; // values equal the enumerators
             int i_priority;
             std::cin >> i_priority;
@@ -179,7 +193,8 @@ int main()
                 saveNotes(&notes);
             break;
             case 5:
-                loadNotes(&notes);
+                notes=loadNotes();
+                std::exit(1);
             break;
             default:
             break;
